@@ -209,6 +209,17 @@ a { color: var(--accent); }
   transition: border-color 0.15s;
 }
 .message-form input:focus { border-color: var(--accent); }
+.ttl-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 8px 8px;
+  font-size: 13px;
+  font-family: var(--font);
+  cursor: pointer;
+  outline: none;
+}
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 .btn {
