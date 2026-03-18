@@ -153,17 +153,20 @@ All endpoints except `/health` require `Authorization: Bearer <token>`.
 
 ```json
 {
-  "id":               "uuid-string",
-  "message_id":       "uuid-of-parent-message",
-  "chat_id":          "uuid-of-chat",
-  "sender_hash":      "sha256-hex-string",
-  "fragment_index":   0,
-  "total_fragments":  3,
-  "payload":          "base64-encoded-encrypted-chunk",
-  "timestamp":        1700000000,
-  "ttl":              0
+  "id":           "uuid-string",
+  "message_id":   "uuid-of-parent-message",
+  "chat_id":      "uuid-of-chat",
+  "sender_hash":  "sha256-hex-string",
+  "payload":      "base64-encoded-encrypted-chunk",
+  "timestamp":    1700000000,
+  "ttl":          0
 }
 ```
+
+Fragment ordering is **positional** — the sender posts chunk `i` to `servers[i]`,
+and the receiver reassembles using the position of each server in the shared chat
+config. This means no server knows how many total servers the chat uses or where
+its chunk sits in the sequence.
 
 `ttl = 0` means the fragment is kept until manually deleted.  
 `ttl > 0` means the fragment expires `ttl` seconds after `timestamp`.

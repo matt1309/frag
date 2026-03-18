@@ -64,15 +64,13 @@ namespace json_build {
 static std::string fragment_to_json(const Fragment& f) {
     std::ostringstream o;
     o << "{"
-      << "\"id\":\""              << utils::json_escape(f.id)            << "\","
-      << "\"message_id\":\""      << utils::json_escape(f.message_id)    << "\","
-      << "\"chat_id\":\""         << utils::json_escape(f.chat_id)       << "\","
-      << "\"sender_hash\":\""     << utils::json_escape(f.sender_hash)   << "\","
-      << "\"fragment_index\":"    << f.fragment_index                     << ","
-      << "\"total_fragments\":"   << f.total_fragments                    << ","
-      << "\"payload\":\""         << utils::json_escape(f.payload)       << "\","
-      << "\"timestamp\":"         << f.timestamp                          << ","
-      << "\"ttl\":"               << f.ttl
+      << "\"id\":\""          << utils::json_escape(f.id)          << "\","
+      << "\"message_id\":\""  << utils::json_escape(f.message_id)  << "\","
+      << "\"chat_id\":\""     << utils::json_escape(f.chat_id)     << "\","
+      << "\"sender_hash\":\"" << utils::json_escape(f.sender_hash) << "\","
+      << "\"payload\":\""     << utils::json_escape(f.payload)     << "\","
+      << "\"timestamp\":"     << f.timestamp                        << ","
+      << "\"ttl\":"           << f.ttl
       << "}";
     return o.str();
 }
@@ -120,19 +118,14 @@ Handler make_post_fragment_handler(AppContext& ctx) {
         f.message_id      = json_read::extract_string(req.body, "message_id");
         f.chat_id         = json_read::extract_string(req.body, "chat_id");
         f.sender_hash     = json_read::extract_string(req.body, "sender_hash");
-        f.fragment_index  = (int)json_read::extract_int(req.body, "fragment_index");
-        f.total_fragments = (int)json_read::extract_int(req.body, "total_fragments", 1);
         f.payload         = json_read::extract_string(req.body, "payload");
         f.ttl             = json_read::extract_int(req.body, "ttl", 0);
 
-        if (f.id.empty())           return HttpResponse::bad_request("missing id");
-        if (f.message_id.empty())   return HttpResponse::bad_request("missing message_id");
-        if (f.chat_id.empty())      return HttpResponse::bad_request("missing chat_id");
-        if (f.sender_hash.empty())  return HttpResponse::bad_request("missing sender_hash");
-        if (f.payload.empty())      return HttpResponse::bad_request("missing payload");
-        if (f.total_fragments <= 0) return HttpResponse::bad_request("invalid total_fragments");
-        if (f.fragment_index < 0 || f.fragment_index >= f.total_fragments)
-            return HttpResponse::bad_request("fragment_index out of range");
+        if (f.id.empty())          return HttpResponse::bad_request("missing id");
+        if (f.message_id.empty())  return HttpResponse::bad_request("missing message_id");
+        if (f.chat_id.empty())     return HttpResponse::bad_request("missing chat_id");
+        if (f.sender_hash.empty()) return HttpResponse::bad_request("missing sender_hash");
+        if (f.payload.empty())     return HttpResponse::bad_request("missing payload");
 
         f.timestamp = utils::now_seconds();
         // Auto-generate id if client sent empty (already checked above)

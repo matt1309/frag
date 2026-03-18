@@ -60,19 +60,42 @@ accept()
 
 Connections are short-lived (HTTP/1.0 close semantics) to keep state minimal.
 
+### Why raw POSIX sockets instead of a library like mongoose?
+
+**Benefits of raw sockets:**
+- **Zero additional dependencies** — the binary compiles with only a C++17
+  compiler and SQLite3. No vendored library to audit, update, or trust.
+- **Auditability** — the entire HTTP parse path is ~200 lines of straightforward
+  C++ that any contributor can read in one sitting. There are no hidden
+  abstractions that could contain bugs or backdoors.
+- **Deployment simplicity** — a single statically-linked binary runs on any
+  Linux/macOS/Windows machine with no extra shared libraries.
+
+**Risks of raw sockets and mitigations:**
+
+| Risk | Mitigation in frag |
+|---|---|
+| Buffer overflow in request reading | `MAX_REQUEST_BYTES` cap (2 MB) on the recv loop |
+| Path traversal (`/../`) | No file serving at all — every path maps to an explicit API route; unmatched paths return 404 |
+| Malformed / incomplete requests | Parsing is defensive: missing fields return 400, recv has a 30-second timeout |
+| Slowloris (connection kept open) | `SO_RCVTIMEO` socket option drops stalled connections after 30 s |
+| HTTP request smuggling | Only `Content-Length` framing is supported; `Transfer-Encoding: chunked` is deliberately ignored |
+
+A production hardening step (roadmap) would add TLS termination in front of the
+binary (nginx, Caddy) rather than implementing TLS in the server itself — that
+keeps the frag binary minimal while using a battle-tested TLS implementation.
+
 ### Database schema
 
 ```sql
 CREATE TABLE fragments (
-    id               TEXT PRIMARY KEY,
-    message_id       TEXT NOT NULL,
-    chat_id          TEXT NOT NULL,
-    sender_hash      TEXT NOT NULL,
-    fragment_index   INTEGER NOT NULL,
-    total_fragments  INTEGER NOT NULL,
-    payload          TEXT NOT NULL,
-    timestamp        INTEGER NOT NULL,  -- Unix seconds (set by server on arrival)
-    ttl              INTEGER NOT NULL DEFAULT 0
+    id           TEXT PRIMARY KEY,
+    message_id   TEXT NOT NULL,
+    chat_id      TEXT NOT NULL,
+    sender_hash  TEXT NOT NULL,
+    payload      TEXT NOT NULL,
+    timestamp    INTEGER NOT NULL,  -- Unix seconds (set by server on arrival)
+    ttl          INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_frag_chat  ON fragments(chat_id, timestamp);
 CREATE INDEX idx_frag_msg   ON fragments(message_id);
@@ -126,39 +149,65 @@ The three logical concerns map to three modules:
 
 ### Message fragmentation
 
+**Why encrypt first, then split?**
+
+The encrypt-then-split order is the only correct choice for authenticated encryption:
+
+- Encrypting the whole message first means AES-GCM's authentication tag covers
+  the *entire* ciphertext. Any tamper with any fragment is detected at decrypt time.
+- If you split first then encrypt each chunk independently, you get N separate
+  auth tags but lose the guarantee that the *assembled* message is authentic —
+  a malicious server could substitute a different valid-looking chunk and the
+  per-chunk MAC wouldn't catch cross-chunk substitution attacks.
+- Splitting first also means the server sees plaintext fragment *boundaries*
+  before encryption, which leaks structural information.
+
 ```
 plaintext
   │ Crypto.encrypt(key, plaintext)
   ▼
-[IV(12) || ciphertext || auth-tag]  ← single ArrayBuffer
+[IV(12) || ciphertext || auth-tag]  ← single ArrayBuffer, tamper-evident as a whole
   │ bufToBase64()
   ▼
 base64-encoded encrypted blob (string)
-  │ Crypto.splitPayload(b64, N)   ← N = server count
+  │ Crypto.splitPayload(b64, N)   ← N = server count from chat config
   ▼
 [chunk_0, chunk_1, ..., chunk_{N-1}]
-  │ POST each chunk to servers[i]
+  │ POST chunk[i] to servers[i]
   ▼
-Server i stores:  { message_id, fragment_index: i, total_fragments: N, payload: chunk_i }
+Server i stores: { message_id, payload: chunk_i }
+  (no fragment_index or total_fragments stored)
 ```
+
+**Why not store `fragment_index` / `total_fragments`?**
+
+Storing the position and count on each server leaks metadata:
+
+- A server operator (or an adversary who compromises one node) can trivially
+  learn how many servers are in the chat (`total_fragments`) and where this
+  piece fits in the sequence. That narrows the topology significantly.
+- It is unnecessary: *both* sender and receiver hold the same ordered server
+  list from the shared chat config. The sender posts `chunk[i]` to `servers[i]`;
+  the receiver fetches from each server and `results[serverIndex]` is the chunk
+  for that position. No positional metadata needs to cross the wire.
 
 Reassembly:
 
 ```
-GET fragments from all N servers
-  │ group by message_id
+Parallel GET from all N servers  →  results[0..N-1]
+  │ group by message_id; position = server index
   ▼
-For each complete message (all N chunks present):
-  ├─ sort by fragment_index
-  ├─ Crypto.joinPayload(chunks)  ← simple string concatenation
+For each message_id where all N server slots have a payload:
+  ├─ ordered = [results[0][msg], results[1][msg], ..., results[N-1][msg]]
+  ├─ Crypto.joinPayload(ordered)  ← simple string concatenation
   ├─ base64ToBuf()
   └─ Crypto.decrypt(key, …)
         └─ TextDecoder.decode()
               └─ plaintext displayed
 ```
 
-A message with fewer than `total_fragments` chunks present is silently skipped
-until the missing server(s) come back online.
+A message where any server slot is missing is silently skipped until the
+missing server comes back online.
 
 ### Polling
 

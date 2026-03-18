@@ -13,11 +13,13 @@ struct Fragment {
     std::string message_id;
     std::string chat_id;
     std::string sender_hash;
-    int         fragment_index{0};
-    int         total_fragments{1};
     std::string payload;    // base64-encoded encrypted chunk
     int64_t     timestamp{0};
     int64_t     ttl{0};     // 0 = never expire, else seconds-to-live from timestamp
+    // Fragment ordering is implied by which server holds the fragment.
+    // The sender posts chunk[i] to servers[i]; the receiver reads results[i]
+    // from servers[i]. Storing position metadata here would leak the total
+    // server count to anyone monitoring a single node.
 };
 
 class Database {

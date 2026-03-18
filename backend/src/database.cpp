@@ -44,8 +44,6 @@ void Database::init_schema() {
             message_id       TEXT NOT NULL,
             chat_id          TEXT NOT NULL,
             sender_hash      TEXT NOT NULL,
-            fragment_index   INTEGER NOT NULL,
-            total_fragments  INTEGER NOT NULL,
             payload          TEXT NOT NULL,
             timestamp        INTEGER NOT NULL,
             ttl              INTEGER NOT NULL DEFAULT 0
@@ -62,9 +60,8 @@ void Database::init_schema() {
 bool Database::insert_fragment(const Fragment& f) {
     const char* sql =
         "INSERT OR IGNORE INTO fragments "
-        "(id, message_id, chat_id, sender_hash, fragment_index, "
-        " total_fragments, payload, timestamp, ttl) "
-        "VALUES (?,?,?,?,?,?,?,?,?)";
+        "(id, message_id, chat_id, sender_hash, payload, timestamp, ttl) "
+        "VALUES (?,?,?,?,?,?,?)";
     sqlite3_stmt* stmt = nullptr;
     check(sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr), "prepare insert");
 
@@ -72,11 +69,9 @@ bool Database::insert_fragment(const Fragment& f) {
     sqlite3_bind_text(stmt, 2, f.message_id.c_str(),   -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, f.chat_id.c_str(),      -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 4, f.sender_hash.c_str(),  -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int (stmt, 5, f.fragment_index);
-    sqlite3_bind_int (stmt, 6, f.total_fragments);
-    sqlite3_bind_text(stmt, 7, f.payload.c_str(),      -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt, 8, f.timestamp);
-    sqlite3_bind_int64(stmt, 9, f.ttl);
+    sqlite3_bind_text(stmt, 5, f.payload.c_str(),      -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 6, f.timestamp);
+    sqlite3_bind_int64(stmt, 7, f.ttl);
 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -87,8 +82,7 @@ bool Database::insert_fragment(const Fragment& f) {
 std::vector<Fragment> Database::get_fragments(const std::string& chat_id,
                                                int64_t since) const {
     const char* sql =
-        "SELECT id, message_id, chat_id, sender_hash, fragment_index, "
-        "       total_fragments, payload, timestamp, ttl "
+        "SELECT id, message_id, chat_id, sender_hash, payload, timestamp, ttl "
         "FROM fragments "
         "WHERE chat_id = ? AND timestamp > ? "
         "ORDER BY timestamp ASC";
@@ -104,15 +98,13 @@ std::vector<Fragment> Database::get_fragments(const std::string& chat_id,
             const char* p = (const char*)sqlite3_column_text(stmt, c);
             return p ? p : "";
         };
-        f.id              = col_text(0);
-        f.message_id      = col_text(1);
-        f.chat_id         = col_text(2);
-        f.sender_hash     = col_text(3);
-        f.fragment_index  = sqlite3_column_int(stmt, 4);
-        f.total_fragments = sqlite3_column_int(stmt, 5);
-        f.payload         = col_text(6);
-        f.timestamp       = sqlite3_column_int64(stmt, 7);
-        f.ttl             = sqlite3_column_int64(stmt, 8);
+        f.id          = col_text(0);
+        f.message_id  = col_text(1);
+        f.chat_id     = col_text(2);
+        f.sender_hash = col_text(3);
+        f.payload     = col_text(4);
+        f.timestamp   = sqlite3_column_int64(stmt, 5);
+        f.ttl         = sqlite3_column_int64(stmt, 6);
         results.push_back(std::move(f));
     }
     sqlite3_finalize(stmt);
@@ -121,9 +113,11 @@ std::vector<Fragment> Database::get_fragments(const std::string& chat_id,
 
 std::vector<Fragment> Database::get_message_fragments(const std::string& message_id) const {
     const char* sql =
-        "SELECT id, message_id, chat_id, sender_hash, fragment_index, "
-        "       total_fragments, payload, timestamp, ttl "
-        "FROM fragments WHERE message_id = ? ORDER BY fragment_index ASC";
+        "SELECT id, message_id, chat_id, sender_hash, payload, timestamp, ttl "
+        "FROM fragments WHERE message_id = ? ORDER BY timestamp ASC";
+        // Note: ordering by timestamp is for display consistency only.
+        // Reassembly order is determined by server position in the chat config,
+        // not by any field stored here.
     sqlite3_stmt* stmt = nullptr;
     check(sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr), "prepare get_msg");
     sqlite3_bind_text(stmt, 1, message_id.c_str(), -1, SQLITE_TRANSIENT);
@@ -135,15 +129,13 @@ std::vector<Fragment> Database::get_message_fragments(const std::string& message
             const char* p = (const char*)sqlite3_column_text(stmt, c);
             return p ? p : "";
         };
-        f.id              = col_text(0);
-        f.message_id      = col_text(1);
-        f.chat_id         = col_text(2);
-        f.sender_hash     = col_text(3);
-        f.fragment_index  = sqlite3_column_int(stmt, 4);
-        f.total_fragments = sqlite3_column_int(stmt, 5);
-        f.payload         = col_text(6);
-        f.timestamp       = sqlite3_column_int64(stmt, 7);
-        f.ttl             = sqlite3_column_int64(stmt, 8);
+        f.id          = col_text(0);
+        f.message_id  = col_text(1);
+        f.chat_id     = col_text(2);
+        f.sender_hash = col_text(3);
+        f.payload     = col_text(4);
+        f.timestamp   = sqlite3_column_int64(stmt, 5);
+        f.ttl         = sqlite3_column_int64(stmt, 6);
         results.push_back(std::move(f));
     }
     sqlite3_finalize(stmt);

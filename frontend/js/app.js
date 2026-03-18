@@ -284,10 +284,10 @@ async function sendMessage(text) {
       message_id: messageId,
       chat_id: chat.chatId,
       sender_hash: state.identity.hash,
-      fragment_index: i,
-      total_fragments: servers.length,
       payload: chunks[i],
       ttl: 0,
+      // fragment_index and total_fragments are intentionally omitted:
+      // position is implied by which server receives the chunk.
     };
     return Network.postFragment(server, fragment);
   });
@@ -334,32 +334,34 @@ async function pollActiveChat() {
   );
   const results = await Promise.all(fetches);
 
-  // Aggregate all fragments (keyed by message_id)
-  const byMessage = {};  // message_id → { fragments: Map<index, payload>, meta }
-  for (const frags of results) {
+  // Aggregate all fragments keyed by message_id.
+  // results[serverIndex] holds fragments from servers[serverIndex], so the
+  // array position encodes the fragment's position in the reassembly order.
+  const N = servers.length;
+  const byMessage = {};  // message_id → { fragments: Map<serverIndex, payload>, meta }
+  results.forEach((frags, serverIdx) => {
     for (const frag of frags) {
       if (!byMessage[frag.message_id]) {
         byMessage[frag.message_id] = {
-          total: frag.total_fragments,
           sender: frag.sender_hash,
           timestamp: frag.timestamp,
           fragments: new Map(),
         };
       }
-      byMessage[frag.message_id].fragments.set(frag.fragment_index, frag.payload);
+      byMessage[frag.message_id].fragments.set(serverIdx, frag.payload);
     }
-  }
+  });
 
   let maxTimestamp = chat.lastSince;
   const existing = new Set((state.messages[chat.id] || []).map(m => m.id));
 
   for (const [messageId, info] of Object.entries(byMessage)) {
-    if (existing.has(messageId)) continue;                   // already displayed
-    if (info.fragments.size < info.total) continue;          // incomplete
+    if (existing.has(messageId)) continue;           // already displayed
+    if (info.fragments.size < N) continue;           // incomplete – missing fragments from one or more servers
 
-    // Reassemble in order
+    // Reassemble in server-list order
     const ordered = [];
-    for (let i = 0; i < info.total; i++) {
+    for (let i = 0; i < N; i++) {
       if (!info.fragments.has(i)) { ordered.length = 0; break; }
       ordered.push(info.fragments.get(i));
     }
