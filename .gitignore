@@ -1,0 +1,32 @@
+# Build directories
+backend/build/
+backend/build-*/
+
+# CMake generated
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Database files (runtime data)
+*.db
+*.db-shm
+*.db-wal
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled output
+*.o
+*.a
+*.so
+*.dll
+*.exe
+
+# Config with secrets (only example is committed)
+backend/config.json
