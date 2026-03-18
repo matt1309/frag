@@ -37,7 +37,7 @@ Future features, known hurdles, and open research questions for frag.
 - [ ] **Token rotation** – API endpoint to invalidate an old token after adding
       a new one, without downtime.
 
-- [ ] **Rate limiting** – Per-IP and per-token request rate caps to prevent
+- [x] **Rate limiting** – Per-IP and per-token request rate caps to prevent
       fragment flooding or enumeration attacks.
 
 - [ ] **Separate `message_id` per server** – Currently all N fragments share the
@@ -80,7 +80,7 @@ Future features, known hurdles, and open research questions for frag.
 
 ### UX improvements
 
-- [ ] **Unread message badges** – Count new fragments received for non-active
+- [x] **Unread message badges** – Count new fragments received for non-active
       chats and display a badge on the chat list entry.
 
 - [ ] **Search** – Client-side full-text search of decrypted message history

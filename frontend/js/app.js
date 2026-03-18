@@ -49,10 +49,11 @@ const state = {
   messages: {},         // { chatId: [msg, ...] }   (in-memory, assembled)
   activeChatId: null,   // id of currently open chat
   pollTimer: null,
+  unreadCounts: {},     // { chatId: number }  – messages received while chat is not active
 };
 
 // Callbacks registered by UI layer
-const listeners = { message: [], chatUpdate: [], serverUpdate: [], identityReady: [] };
+const listeners = { message: [], chatUpdate: [], serverUpdate: [], identityReady: [], unread: [] };
 
 function on(event, cb) {
   if (listeners[event]) listeners[event].push(cb);
@@ -181,6 +182,11 @@ function getChats() { return state.chats; }
 function setActiveChat(chatId) {
   state.activeChatId = chatId;
   if (chatId && !state.messages[chatId]) state.messages[chatId] = [];
+  // Clear unread count when the user opens a chat
+  if (chatId && state.unreadCounts[chatId]) {
+    state.unreadCounts[chatId] = 0;
+    emit('unread', { chatId, count: 0 });
+  }
 }
 
 function getActiveChat() {
@@ -320,11 +326,14 @@ async function sendMessage(text, ttl = 0) {
 
 // ── Polling / receiving messages ──────────────────────────────────────────────
 
-/** Fetch and decrypt new messages for the active chat. */
-async function pollActiveChat() {
-  const chat = getActiveChat();
-  if (!chat) return;
-
+/**
+ * Fetch and decrypt new messages for a single chat.
+ * If the chat is not the active one, new messages increment the unread counter
+ * instead of emitting individual 'message' events.
+ *
+ * @param {object} chat - chat object from state.chats
+ */
+async function pollChat(chat) {
   const servers = chat.serverIds.map(sid => state.servers.find(s => s.id === sid))
     .filter(Boolean);
   if (servers.length === 0) return;
@@ -358,10 +367,12 @@ async function pollActiveChat() {
 
   let maxTimestamp = chat.lastSince;
   const existing = new Set((state.messages[chat.id] || []).map(m => m.id));
+  const isActive = chat.id === state.activeChatId;
+  let newCount = 0;
 
   for (const [messageId, info] of Object.entries(byMessage)) {
     if (existing.has(messageId)) continue;           // already displayed
-    if (info.fragments.size < N) continue;           // incomplete – missing fragments from one or more servers
+    if (info.fragments.size < N) continue;           // incomplete – missing fragments
 
     // Reassemble in server-list order
     const ordered = [];
@@ -388,7 +399,12 @@ async function pollActiveChat() {
       status: 'received',
     };
     (state.messages[chat.id] || (state.messages[chat.id] = [])).push(msg);
-    emit('message', { chatId: chat.id, message: msg });
+
+    if (isActive) {
+      emit('message', { chatId: chat.id, message: msg });
+    } else {
+      newCount++;
+    }
 
     if (info.timestamp > maxTimestamp) maxTimestamp = info.timestamp;
   }
@@ -397,12 +413,29 @@ async function pollActiveChat() {
     chat.lastSince = maxTimestamp;
     saveChats();
   }
+
+  if (!isActive && newCount > 0) {
+    state.unreadCounts[chat.id] = (state.unreadCounts[chat.id] || 0) + newCount;
+    emit('unread', { chatId: chat.id, count: state.unreadCounts[chat.id] });
+  }
+}
+
+/** Fetch and decrypt new messages for the active chat. */
+async function pollActiveChat() {
+  const chat = getActiveChat();
+  if (!chat) return;
+  return pollChat(chat);
+}
+
+/** Fetch and decrypt new messages for ALL chats (active + background). */
+async function pollAllChats() {
+  await Promise.allSettled(state.chats.map(chat => pollChat(chat)));
 }
 
 /** Start auto-polling every `intervalMs` milliseconds. */
 function startPolling(intervalMs = 5000) {
   if (state.pollTimer) clearInterval(state.pollTimer);
-  state.pollTimer = setInterval(() => pollActiveChat().catch(() => {}), intervalMs);
+  state.pollTimer = setInterval(() => pollAllChats().catch(() => {}), intervalMs);
 }
 
 function stopPolling() {
@@ -459,8 +492,12 @@ const App = {
   // Messaging
   sendMessage,
   pollActiveChat,
+  pollAllChats,
   startPolling,
   stopPolling,
+
+  // Unread counts
+  getUnreadCount: (chatId) => state.unreadCounts[chatId] || 0,
 
   // Expose raw state for UI reads (read-only intent)
   get messages() { return state.messages; },

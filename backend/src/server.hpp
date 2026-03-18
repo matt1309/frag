@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <atomic>
+#include "rate_limiter.hpp"
 
 // ── HTTP abstractions ─────────────────────────────────────────────────────────
 
@@ -41,6 +42,9 @@ struct HttpResponse {
     static HttpResponse payload_too_large()
         { return {413, "Payload Too Large", "application/json",
                   "{\"error\":\"payload too large\"}"}; }
+    static HttpResponse too_many_requests()
+        { return {429, "Too Many Requests", "application/json",
+                  "{\"error\":\"too many requests\"}"}; }
     static HttpResponse server_error(const std::string& msg)
         { return {500, "Internal Server Error", "application/json",
                   "{\"error\":\"" + msg + "\"}"}; }
@@ -58,7 +62,7 @@ struct Route {
 
 class HttpServer {
 public:
-    HttpServer(int port, std::string cors_origin);
+    HttpServer(int port, std::string cors_origin, int rate_limit_per_ip = 0);
     ~HttpServer();
 
     HttpServer(const HttpServer&) = delete;
@@ -78,8 +82,9 @@ private:
     std::vector<Route> routes_;
     std::atomic<bool>  running_{false};
     int         server_fd_{-1};
+    mutable RateLimiter rate_limiter_;
 
-    void        handle_connection(int client_fd) const;
+    void        handle_connection(int client_fd, const std::string& client_ip) const;
     HttpRequest read_and_parse(int client_fd) const;
     std::string build_response(const HttpResponse& resp) const;
 
