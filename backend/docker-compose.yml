@@ -1,0 +1,80 @@
+version: "3.9"
+
+services:
+  # ── Frag server node 1 ───────────────────────────────────────────────────────
+  frag-node-1:
+    build: .
+    container_name: frag-node-1
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    volumes:
+      - frag-node-1-data:/app
+    environment:
+      - FRAG_CONFIG=/app/config.json
+    configs:
+      - source: node1_config
+        target: /app/config.json
+
+  # ── Frag server node 2 ───────────────────────────────────────────────────────
+  frag-node-2:
+    build: .
+    container_name: frag-node-2
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    volumes:
+      - frag-node-2-data:/app
+    configs:
+      - source: node2_config
+        target: /app/config.json
+
+  # ── Frag server node 3 ───────────────────────────────────────────────────────
+  frag-node-3:
+    build: .
+    container_name: frag-node-3
+    restart: unless-stopped
+    ports:
+      - "8083:8080"
+    volumes:
+      - frag-node-3-data:/app
+    configs:
+      - source: node3_config
+        target: /app/config.json
+
+configs:
+  node1_config:
+    content: |
+      {
+        "port": 8080,
+        "tokens": ["node1-secret-token-replace-me"],
+        "db_path": "/app/frag.db",
+        "cors_origin": "*",
+        "cleanup_interval_sec": 3600,
+        "max_payload_bytes": 65536
+      }
+  node2_config:
+    content: |
+      {
+        "port": 8080,
+        "tokens": ["node2-secret-token-replace-me"],
+        "db_path": "/app/frag.db",
+        "cors_origin": "*",
+        "cleanup_interval_sec": 3600,
+        "max_payload_bytes": 65536
+      }
+  node3_config:
+    content: |
+      {
+        "port": 8080,
+        "tokens": ["node3-secret-token-replace-me"],
+        "db_path": "/app/frag.db",
+        "cors_origin": "*",
+        "cleanup_interval_sec": 3600,
+        "max_payload_bytes": 65536
+      }
+
+volumes:
+  frag-node-1-data:
+  frag-node-2-data:
+  frag-node-3-data:

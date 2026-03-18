@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>frag – fragmented encrypted chat</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ── Toast notifications ─────────────────────────────────────────────────── -->
+<div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ── App shell ───────────────────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside id="sidebar">
+
+    <!-- Identity -->
+    <section id="identity-section" class="sidebar-section">
+      <h2 class="section-title">Identity</h2>
+      <div class="identity-box">
+        <code id="identity-hash" class="hash-display" title="Your identity hash">loading…</code>
+        <div class="identity-actions">
+          <button id="btn-copy-hash" class="btn btn-sm" title="Copy hash">Copy</button>
+          <button id="btn-import-hash" class="btn btn-sm" title="Import hash from another device">Import</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Servers -->
+    <section id="servers-section" class="sidebar-section">
+      <div class="section-header">
+        <h2 class="section-title">Servers</h2>
+        <button id="btn-check-servers" class="btn btn-sm" title="Ping all servers">Ping</button>
+        <button id="btn-add-server" class="btn btn-sm primary">+ Add</button>
+      </div>
+      <ul id="server-list" class="item-list"></ul>
+    </section>
+
+    <!-- Chats -->
+    <section id="chats-section" class="sidebar-section">
+      <div class="section-header">
+        <h2 class="section-title">Chats</h2>
+        <button id="btn-import-chat" class="btn btn-sm" title="Join existing chat">Join</button>
+        <button id="btn-new-chat" class="btn btn-sm primary">+ New</button>
+      </div>
+      <ul id="chat-list" class="item-list"></ul>
+    </section>
+
+  </aside>
+
+  <!-- ── Main content ──────────────────────────────────────────────────────── -->
+  <main id="main">
+
+    <!-- Placeholder when no chat open -->
+    <div id="chat-placeholder" class="placeholder">
+      <div class="placeholder-inner">
+        <div class="placeholder-icon">🔒</div>
+        <h1>frag</h1>
+        <p>Fragmented · Encrypted · Distributed chat</p>
+        <ol class="getting-started">
+          <li>Add one or more servers (sidebar → Servers → Add)</li>
+          <li>Create a new chat, selecting the servers to distribute across</li>
+          <li>Share the chat config with others via <em>Export</em></li>
+          <li>Start messaging — end-to-end encrypted, zero central server</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Active chat view -->
+    <div id="chat-view" class="hidden">
+      <header id="chat-header">
+        <span id="chat-header-name" class="chat-header-name"></span>
+        <div class="chat-header-actions">
+          <button id="btn-export-chat" class="btn btn-sm" title="Export chat config to share">Export</button>
+          <button id="btn-remove-chat" class="btn btn-sm danger" title="Remove this chat">Delete</button>
+        </div>
+      </header>
+
+      <div id="message-list" class="message-list" role="log" aria-live="polite"></div>
+
+      <form id="message-form" class="message-form" autocomplete="off">
+        <input
+          id="message-input"
+          type="text"
+          placeholder="Type a message… (Enter to send)"
+          aria-label="Message input"
+          autocomplete="off"
+          maxlength="4096"
+        />
+        <button type="submit" class="btn primary">Send</button>
+      </form>
+    </div>
+
+  </main>
+</div><!-- #app -->
+
+<!-- ── Modals ────────────────────────────────────────────────────────────── -->
+
+<!-- Add Server -->
+<div id="modal-add-server" class="modal-overlay hidden" role="dialog" aria-modal="true"
+     aria-labelledby="modal-add-server-title">
+  <div class="modal">
+    <h3 id="modal-add-server-title">Add Server</h3>
+    <form id="add-server-form">
+      <label>
+        Server URL
+        <input id="server-url" type="url" required placeholder="http://your-server:8080" />
+      </label>
+      <label>
+        Auth Token
+        <input id="server-token" type="password" required placeholder="your-secret-token" />
+      </label>
+      <label>
+        Label <span class="optional">(optional)</span>
+        <input id="server-label" type="text" placeholder="My server" />
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="add-server-cancel" class="btn">Cancel</button>
+        <button type="submit" class="btn primary">Add Server</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- New Chat -->
+<div id="modal-new-chat" class="modal-overlay hidden" role="dialog" aria-modal="true"
+     aria-labelledby="modal-new-chat-title">
+  <div class="modal">
+    <h3 id="modal-new-chat-title">New Chat</h3>
+    <form id="new-chat-form">
+      <label>
+        Chat Name
+        <input id="chat-name" type="text" required placeholder="My private chat" />
+      </label>
+      <fieldset>
+        <legend>Distribute across servers</legend>
+        <div id="new-chat-servers" class="server-checkboxes"></div>
+      </fieldset>
+      <p class="hint">
+        A new encryption key is generated automatically.<br/>
+        Use <em>Export</em> after creation to share the chat config with others.
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="new-chat-cancel" class="btn">Cancel</button>
+        <button type="submit" class="btn primary">Create Chat</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Import Chat -->
+<div id="modal-import-chat" class="modal-overlay hidden" role="dialog" aria-modal="true"
+     aria-labelledby="modal-import-chat-title">
+  <div class="modal">
+    <h3 id="modal-import-chat-title">Join Existing Chat</h3>
+    <form id="import-chat-form">
+      <label>
+        Paste chat config JSON
+        <textarea id="import-chat-json" rows="6" required
+          placeholder='{"name":"…","chatId":"…","keyB64":"…","servers":[…]}'></textarea>
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="import-chat-cancel" class="btn">Cancel</button>
+        <button type="submit" class="btn primary">Join</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Export Chat -->
+<div id="modal-export-chat" class="modal-overlay hidden" role="dialog" aria-modal="true"
+     aria-labelledby="modal-export-chat-title">
+  <div class="modal">
+    <h3 id="modal-export-chat-title">Export Chat Config</h3>
+    <p class="hint warning">
+      ⚠ This contains your server tokens and encryption key.<br/>
+      Share only with people you trust, via a secure channel.
+    </p>
+    <label>
+      Chat config JSON
+      <textarea id="export-chat-output" rows="8" readonly></textarea>
+    </label>
+    <div class="modal-actions">
+      <button type="button" id="export-chat-close" class="btn">Close</button>
+      <button type="button" id="btn-copy-export" class="btn primary">Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Identity -->
+<div id="modal-import-identity" class="modal-overlay hidden" role="dialog" aria-modal="true"
+     aria-labelledby="modal-import-identity-title">
+  <div class="modal">
+    <h3 id="modal-import-identity-title">Import Identity</h3>
+    <p class="hint">
+      Paste your identity hash from another device.<br/>
+      This replaces your current identity locally.
+    </p>
+    <form id="import-identity-form">
+      <label>
+        Identity Hash
+        <input id="import-hash-value" type="text" required
+               placeholder="64-character hex string" pattern="[0-9a-fA-F]{16,}" />
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="import-identity-cancel" class="btn">Cancel</button>
+        <button type="submit" class="btn primary">Import</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module" src="js/ui.js"></script>
+</body>
+</html>
