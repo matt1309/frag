@@ -6,5 +6,6 @@
   "db_path": "frag.db",
   "cors_origin": "*",
   "cleanup_interval_sec": 3600,
-  "max_payload_bytes": 65536
+  "max_payload_bytes": 65536,
+  "rate_limit_per_ip": 60
 }

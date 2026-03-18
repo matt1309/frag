@@ -74,6 +74,7 @@ Edit `backend/config.json` (copied from `config.example.json`):
 | `cors_origin` | `"*"` | CORS `Allow-Origin` header value |
 | `cleanup_interval_sec` | `3600` | How often expired fragments are purged |
 | `max_payload_bytes` | `65536` | Maximum fragment payload size (bytes) |
+| `rate_limit_per_ip` | `60` | Maximum requests per IP per minute (0 = disabled) |
 
 **Security**: use long random tokens (≥ 32 characters). Example generation:
 

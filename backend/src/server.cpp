@@ -28,8 +28,9 @@ static constexpr int    RECV_TIMEOUT_SEC  = 30;
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-HttpServer::HttpServer(int port, std::string cors_origin)
-    : port_(port), cors_origin_(std::move(cors_origin)) {
+HttpServer::HttpServer(int port, std::string cors_origin, int rate_limit_per_ip)
+    : port_(port), cors_origin_(std::move(cors_origin)),
+      rate_limiter_(rate_limit_per_ip) {
 #ifdef _WIN32
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
@@ -85,8 +86,11 @@ void HttpServer::start() {
             if (!running_) break;
             continue;
         }
-        std::thread([this, client_fd]() {
-            try { handle_connection(client_fd); }
+        std::thread([this, client_fd, client_addr]() {
+            char ip_buf[INET_ADDRSTRLEN] = "unknown";
+            inet_ntop(AF_INET, &client_addr.sin_addr, ip_buf, sizeof(ip_buf));
+            std::string client_ip = ip_buf;
+            try { handle_connection(client_fd, client_ip); }
             catch (const std::exception& e) {
                 std::cerr << "[frag] Connection error: " << e.what() << "\n";
             }
@@ -105,7 +109,15 @@ void HttpServer::stop() {
 
 // ── Connection handler ────────────────────────────────────────────────────────
 
-void HttpServer::handle_connection(int client_fd) const {
+void HttpServer::handle_connection(int client_fd, const std::string& client_ip) const {
+    // Rate-limit check before reading the request body
+    if (!rate_limiter_.allow(client_ip)) {
+        HttpResponse resp = HttpResponse::too_many_requests();
+        std::string raw = build_response(resp);
+        send(client_fd, raw.c_str(), (int)raw.size(), 0);
+        return;
+    }
+
     HttpRequest req = read_and_parse(client_fd);
 
     // CORS preflight

@@ -143,14 +143,21 @@ function renderChatList(chats) {
   }
   for (const chat of chats) {
     const isActive = chat.id === App.activeChatId;
-    const li = createElement('li', {
-      className: `chat-item${isActive ? ' active' : ''}`,
-      onClick: () => openChat(chat.id),
-    }, [
+    const unread = App.getUnreadCount(chat.id);
+    const children = [
       createElement('span', { className: 'chat-name' }, [chat.name]),
       createElement('span', { className: 'chat-server-count' },
         [`${chat.serverIds.length} server${chat.serverIds.length !== 1 ? 's' : ''}`]),
-    ]);
+    ];
+    if (unread > 0) {
+      children.push(
+        createElement('span', { className: 'unread-badge' }, [String(unread > 99 ? '99+' : unread)])
+      );
+    }
+    const li = createElement('li', {
+      className: `chat-item${isActive ? ' active' : ''}`,
+      onClick: () => openChat(chat.id),
+    }, children);
     list.appendChild(li);
   }
 }
@@ -340,6 +347,7 @@ function wireAppEvents() {
   App.on('identityReady', identity => renderIdentity(identity));
   App.on('serverUpdate', servers => renderServers(servers));
   App.on('chatUpdate', chats => renderChatList(chats));
+  App.on('unread', () => renderChatList(App.getChats()));
 
   App.on('message', ({ chatId, message }) => {
     if (chatId !== App.activeChatId) return;

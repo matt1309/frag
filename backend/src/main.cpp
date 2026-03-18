@@ -30,6 +30,7 @@ struct Config {
     std::string              cors_origin{"*"};
     int                      cleanup_interval_sec{3600};
     size_t                   max_payload_bytes{65536};
+    int                      rate_limit_per_ip{60};
 };
 
 static std::string read_file(const std::string& path) {
@@ -127,6 +128,16 @@ static Config load_config(const std::string& path) {
         }
     }
 
+    // rate_limit_per_ip
+    auto rlpos = json.find("\"rate_limit_per_ip\"");
+    if (rlpos != std::string::npos) {
+        size_t colon = json.find(':', rlpos);
+        if (colon != std::string::npos) {
+            try { cfg.rate_limit_per_ip = std::stoi(json.substr(colon + 1)); }
+            catch (...) {}
+        }
+    }
+
     return cfg;
 }
 
@@ -179,7 +190,7 @@ int main(int argc, char* argv[]) {
         std::signal(SIGTERM, on_signal);
 
         // HTTP server
-        HttpServer server(cfg.port, cfg.cors_origin);
+        HttpServer server(cfg.port, cfg.cors_origin, cfg.rate_limit_per_ip);
         register_routes(server, ctx);
 
         // Run in a separate thread so we can respond to stop signal
