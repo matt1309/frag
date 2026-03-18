@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <functional>
+#include <cstdint>
 #include "server.hpp"
 #include "database.hpp"
 #include "auth.hpp"
@@ -10,13 +11,14 @@ struct AppContext {
     Database& db;
     Auth&     auth;
     size_t    max_payload_bytes;
+    int64_t   start_time;  // Unix seconds when the server started
 };
 
 // ── Handler registrations ─────────────────────────────────────────────────────
 
 // GET /health
-// Returns {"status":"ok","version":"1.0.0"}
-Handler make_health_handler();
+// Returns {"status":"ok","version":"1.0.0","uptime_sec":N,"fragment_count":N}
+Handler make_health_handler(AppContext& ctx);
 
 // POST /api/fragments
 // Body: JSON fragment object

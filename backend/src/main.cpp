@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
     try {
         Database db(cfg.db_path);
         Auth     auth(cfg.tokens);
-        AppContext ctx{db, auth, cfg.max_payload_bytes};
+        AppContext ctx{db, auth, cfg.max_payload_bytes, utils::now_seconds()};
 
         // Background cleanup thread
         std::thread cleanup_thread([&]() {

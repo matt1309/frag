@@ -81,6 +81,16 @@
         </div>
       </header>
 
+      <div id="chat-search-bar" class="chat-search-bar">
+        <input
+          id="chat-search-input"
+          type="search"
+          placeholder="Search messages…"
+          aria-label="Search messages"
+          autocomplete="off"
+        />
+      </div>
+
       <div id="message-list" class="message-list" role="log" aria-live="polite"></div>
 
       <form id="message-form" class="message-form" autocomplete="off">
@@ -221,6 +231,18 @@
   </div>
 </div>
 
-<script type="module" src="js/ui.js" integrity="sha384-YYod0og3fxdhYLeD6pTSCHhttpWxLMZOYg5KRP231iY+4NDqFl2r9ltkUAgUbSL1" crossorigin="anonymous"></script>
+<!-- Server Health Dashboard -->
+<div id="modal-server-health" class="modal-overlay hidden" role="dialog" aria-modal="true"
+     aria-labelledby="modal-server-health-title">
+  <div class="modal">
+    <h3 id="modal-server-health-title">Server Health</h3>
+    <div id="server-health-content" class="server-health-content"></div>
+    <div class="modal-actions">
+      <button type="button" id="server-health-close" class="btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/ui.js"></script>
 </body>
 </html>
