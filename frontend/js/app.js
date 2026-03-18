@@ -258,8 +258,10 @@ function displayName(hash) {
 /**
  * Send a plaintext message in the active chat.
  * Encrypts, splits across servers, and POST each fragment.
+ * @param {string} text  - Plaintext message to send.
+ * @param {number} [ttl] - Seconds until the fragment expires (0 = no expiry).
  */
-async function sendMessage(text) {
+async function sendMessage(text, ttl = 0) {
   const chat = getActiveChat();
   if (!chat) throw new Error('No active chat');
   if (!state.identity) throw new Error('Identity not initialised');
@@ -267,6 +269,8 @@ async function sendMessage(text) {
   const servers = chat.serverIds.map(sid => state.servers.find(s => s.id === sid))
     .filter(Boolean);
   if (servers.length === 0) throw new Error('No servers available for this chat');
+
+  const resolvedTtl = (typeof ttl === 'number' && ttl >= 0) ? Math.floor(ttl) : 0;
 
   // Encrypt the message text
   const key = await Crypto.importKey(chat.keyB64);
@@ -285,7 +289,7 @@ async function sendMessage(text) {
       chat_id: chat.chatId,
       sender_hash: state.identity.hash,
       payload: chunks[i],
-      ttl: 0,
+      ttl: resolvedTtl,
       // fragment_index and total_fragments are intentionally omitted:
       // position is implied by which server receives the chunk.
     };

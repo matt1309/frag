@@ -291,9 +291,10 @@ function initChatView() {
     const input = qs('#message-input');
     const text = input.value.trim();
     if (!text) return;
+    const ttl = parseInt(qs('#message-ttl')?.value || '0', 10);
     input.value = '';
     try {
-      const result = await App.sendMessage(text);
+      const result = await App.sendMessage(text, ttl);
       if (result?.warning) toast(result.warning, 'warning');
     } catch (err) {
       toast(err.message, 'error');

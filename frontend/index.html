@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; connect-src *; object-src 'none'; base-uri 'self'; form-action 'self';" />
   <title>frag – fragmented encrypted chat</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css" integrity="sha384-9ZMqSi1mpgtVdwE83zmwAnQCtdwqrhbW4ejC4J1DHgZFlcNV9bwh9Y4SxLvJlRIH" crossorigin="anonymous" />
 </head>
 <body>
 
@@ -90,6 +92,12 @@
           autocomplete="off"
           maxlength="4096"
         />
+        <select id="message-ttl" class="ttl-select" aria-label="Message expiry" title="Message expiry">
+          <option value="0">No expiry</option>
+          <option value="3600">1 hour</option>
+          <option value="86400">24 hours</option>
+          <option value="604800">7 days</option>
+        </select>
         <button type="submit" class="btn primary">Send</button>
       </form>
     </div>
@@ -213,6 +221,6 @@
   </div>
 </div>
 
-<script type="module" src="js/ui.js"></script>
+<script type="module" src="js/ui.js" integrity="sha384-0r2nai7Vk7/+4xifQx7zPoU34KYLqckI/dMshKREUQn1nLi3mebKE43qi319zVTf" crossorigin="anonymous"></script>
 </body>
 </html>

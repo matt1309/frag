@@ -12,7 +12,7 @@ Future features, known hurdles, and open research questions for frag.
       The backend would keep a connection open and push new fragment notifications
       to connected clients. Reduces latency and server load.
 
-- [ ] **Message TTL UI** – Expose the `ttl` field in the send UI so users can
+- [x] **Message TTL UI** – Expose the `ttl` field in the send UI so users can
       set per-message expiry (e.g. "delete after 24 hours").
 
 - [ ] **Read receipts** – A lightweight acknowledgement mechanism: a small
@@ -25,12 +25,14 @@ Future features, known hurdles, and open research questions for frag.
 
 ### Security hardening
 
-- [ ] **Subresource Integrity (SRI)** – Add `integrity="sha256-…"` attributes to
-      `<script>` and `<link>` tags in `index.html` so browsers verify the JS/CSS
-      hasn't been tampered with. Automate hash computation in a build script.
+- [x] **Subresource Integrity (SRI)** – `integrity="sha384-…"` attributes are
+      added to `<script>` and `<link>` tags in `index.html` so browsers verify
+      the JS/CSS hasn't been tampered with. Run `node scripts/generate-sri.js`
+      to recompute hashes after any asset change.
 
-- [ ] **Content Security Policy (CSP)** – Serve `index.html` with a strict CSP
-      header (`script-src 'self'`; `connect-src` limited to known server origins).
+- [x] **Content Security Policy (CSP)** – `index.html` ships with a strict CSP
+      `<meta>` tag (`script-src 'self'`; `connect-src *` to allow user-configured
+      server origins).
 
 - [ ] **Token rotation** – API endpoint to invalidate an old token after adding
       a new one, without downtime.
