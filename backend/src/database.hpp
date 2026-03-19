@@ -47,6 +47,9 @@ public:
     // Remove fragments whose (timestamp + ttl) <= now and ttl > 0.
     int purge_expired();
 
+    // Count total stored fragments.
+    int64_t get_fragment_count() const;
+
 private:
     sqlite3* db_{nullptr};
 

@@ -96,9 +96,20 @@ static bool is_authorized(const HttpRequest& req, const Auth& auth) {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
-Handler make_health_handler() {
-    return [](const HttpRequest&) -> HttpResponse {
-        return HttpResponse::ok("{\"status\":\"ok\",\"version\":\"1.0.0\"}");
+Handler make_health_handler(AppContext& ctx) {
+    return [&ctx](const HttpRequest&) -> HttpResponse {
+        int64_t now = utils::now_seconds();
+        int64_t uptime = now - ctx.start_time;
+        int64_t fcount = 0;
+        try { fcount = ctx.db.get_fragment_count(); } catch (...) {}
+        std::ostringstream o;
+        o << "{"
+          << "\"status\":\"ok\","
+          << "\"version\":\"1.0.0\","
+          << "\"uptime_sec\":" << uptime << ","
+          << "\"fragment_count\":" << fcount
+          << "}";
+        return HttpResponse::ok(o.str());
     };
 }
 
@@ -215,7 +226,7 @@ Handler make_delete_fragment_handler(AppContext& ctx) {
 // ── Route registration ────────────────────────────────────────────────────────
 
 void register_routes(HttpServer& server, AppContext& ctx) {
-    server.add_route("GET",    "/health",                         make_health_handler());
+    server.add_route("GET",    "/health",                         make_health_handler(ctx));
     server.add_route("POST",   "/api/fragments",                  make_post_fragment_handler(ctx));
     server.add_route("GET",    "/api/fragments",                  make_get_fragments_handler(ctx));
     server.add_route("GET",    "/api/fragments/:message_id/all",  make_get_message_fragments_handler(ctx));

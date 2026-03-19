@@ -92,6 +92,11 @@ function renderServers(servers) {
       createElement('span', { className: 'server-status' }, [status]),
       createElement('span', { className: 'server-label', title: s.url }, [s.label || s.url]),
       createElement('button', {
+        className: 'btn-icon',
+        title: 'View server health',
+        onClick: () => showServerHealth(s),
+      }, ['ℹ']),
+      createElement('button', {
         className: 'btn-icon danger',
         title: 'Remove server',
         onClick: () => {
@@ -129,6 +134,57 @@ function initServerPanel() {
     await App.checkAllServers();
     toast('Server check complete.', 'success');
   });
+
+  qs('#server-health-close')?.addEventListener('click', () => hideModal('modal-server-health'));
+}
+
+// ── Server health dashboard ───────────────────────────────────────────────────
+
+/**
+ * Fetch extended health data from a server and display it in the health modal.
+ */
+async function showServerHealth(server) {
+  const content = qs('#server-health-content');
+  if (!content) return;
+
+  content.innerHTML = '<p class="hint">Loading…</p>';
+  showModal('modal-server-health');
+
+  try {
+    const data = await App.getServerHealth(server);
+    const uptime = formatUptime(data.uptime_sec ?? null);
+    const status = data.status === 'ok' ? '🟢 Online' : '🔴 Offline';
+
+    content.innerHTML = '';
+    const rows = [
+      ['Server',          escapeHtml(server.label || server.url)],
+      ['URL',             escapeHtml(server.url)],
+      ['Status',          status],
+      ['Version',         escapeHtml(data.version ?? '—')],
+      ['Uptime',          uptime],
+      ['Fragment count',  data.fragment_count != null ? String(data.fragment_count) : '—'],
+    ];
+    const table = createElement('table', { className: 'health-table' },
+      rows.map(([label, value]) =>
+        createElement('tr', {}, [
+          createElement('th', {}, [label]),
+          createElement('td', {}, [value]),
+        ])
+      )
+    );
+    content.appendChild(table);
+  } catch (err) {
+    content.innerHTML = `<p class="hint warning">⚠ Could not fetch health data: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function formatUptime(seconds) {
+  if (seconds == null || seconds < 0) return '—';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return `${h}h ${m}m`;
 }
 
 // ── Chat list ─────────────────────────────────────────────────────────────────
@@ -241,6 +297,10 @@ async function openChat(chatId) {
   qs('#chat-placeholder')?.classList.add('hidden');
   qs('#chat-view')?.classList.remove('hidden');
 
+  // Clear search when switching chats
+  const searchInput = qs('#chat-search-input');
+  if (searchInput) searchInput.value = '';
+
   renderMessages(App.messages[chat.id] || []);
 
   // Poll immediately then start interval
@@ -306,6 +366,15 @@ function initChatView() {
     } catch (err) {
       toast(err.message, 'error');
     }
+  });
+
+  // ── Search bar ──────────────────────────────────────────────────────────────
+  qs('#chat-search-input')?.addEventListener('input', () => {
+    const query = qs('#chat-search-input').value;
+    const chatId = App.activeChatId;
+    if (!chatId) return;
+    const msgs = App.searchMessages(chatId, query);
+    renderMessages(msgs);
   });
 
   qs('#btn-export-chat')?.addEventListener('click', () => {

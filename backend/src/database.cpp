@@ -165,3 +165,14 @@ int Database::purge_expired() {
     sqlite3_finalize(stmt);
     return deleted;
 }
+
+int64_t Database::get_fragment_count() const {
+    const char* sql = "SELECT COUNT(*) FROM fragments";
+    sqlite3_stmt* stmt = nullptr;
+    check(sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr), "prepare count");
+    int64_t count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        count = sqlite3_column_int64(stmt, 0);
+    sqlite3_finalize(stmt);
+    return count;
+}

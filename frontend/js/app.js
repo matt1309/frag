@@ -130,6 +130,11 @@ async function checkAllServers() {
   await Promise.allSettled(state.servers.map(checkServer));
 }
 
+/** Fetch extended health data from a single server for the health dashboard. */
+async function getServerHealth(server) {
+  return Network.healthCheck(server.url, server.token);
+}
+
 // ── Chats ─────────────────────────────────────────────────────────────────────
 
 function loadChats() {
@@ -257,6 +262,22 @@ function getNickname(hash) {
 
 function displayName(hash) {
   return state.nicknames[hash] || hash.slice(0, 8) + '…';
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+/**
+ * Search decrypted messages in a chat for a query string.
+ * Returns only messages whose text contains the query (case-insensitive).
+ * @param {string} chatId - Internal chat id (from state.chats[].id)
+ * @param {string} query  - Search query string
+ * @returns {object[]} Filtered array of message objects
+ */
+function searchMessages(chatId, query) {
+  const msgs = state.messages[chatId] || [];
+  if (!query || !query.trim()) return msgs;
+  const q = query.trim().toLowerCase();
+  return msgs.filter(m => m.text && m.text.toLowerCase().includes(q));
 }
 
 // ── Sending messages ──────────────────────────────────────────────────────────
@@ -474,6 +495,7 @@ const App = {
   getServers,
   checkAllServers,
   checkServer,
+  getServerHealth,
 
   // Chats
   createChat,
@@ -495,6 +517,7 @@ const App = {
   pollAllChats,
   startPolling,
   stopPolling,
+  searchMessages,
 
   // Unread counts
   getUnreadCount: (chatId) => state.unreadCounts[chatId] || 0,
