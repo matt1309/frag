@@ -9,6 +9,18 @@ requires compromising *every* server in a chat *and* having the encryption key.
 
 ---
 
+## Screenshots
+
+### Desktop
+
+![FRAG desktop UI](https://github.com/user-attachments/assets/e12e5162-d1f7-417a-8a25-ff8d43276248)
+
+### Mobile
+
+![FRAG mobile UI](https://github.com/user-attachments/assets/0cb39747-64ff-484c-b8ad-29f0f6c532db)
+
+---
+
 ## Quick start
 
 ### 1 – Run a backend node (Docker)
